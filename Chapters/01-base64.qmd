@@ -17,35 +17,34 @@ knitr::opts_chunk$set(
 
 # Project 1 - Building a base64 encoder/decoder {#sec-base64}
 
-As our first small project, I want to implement a base64 encoder/decoder with you.
-Base64 is an encoding system which translates binary data to text.
-A big chunk of the web uses base64 to deliver binary data to systems
-that can only read text data.
+For our first small project we are going to build a base64 encoder/decoder.
+Base64 is an encoding system designed to represent binary data (such as files,
+images, or binary executables) as ASCII strings. This encoding is widely used
+to encode data for transmission over text-based systems such as email, JSON, or
+XML, where binary data might cause issues or not be supported.
 
-The most common example of a modern use case for base64 is essentially any email system,
-like GMail, Outlook, etc. Because email systems normally use
-the Simple Mail Transfer Protocol (SMTP), which is a web protocol
-that supports only text data. So, if you need, for any reason, to
-send a binary file (like for example, a PDF, or an Excel file) as
-an attachment in your email, these binary files are normally
-converted to base64, before they are included in the SMTP message.
-So, the base64 encoding is largely used in these email systems to include
-binary data into the SMTP message.
+A common modern use case for base64 encoding is email, particularly with
+services like Gmail and Outlook. Email systems typically rely on the Simple
+Mail Transfer Protocol (SMTP), which only supports text data. Therefore, binary
+files such as images, photos, or PDFs must be encoded into a textual format,
+usually base64, before being attached to an email.
 
-
-
+Notably, base64 can encode any byte sequence, as it imposes no restrictions on
+the input data. Whether it’s a binary file or an ASCII string, the algorithm
+treats all inputs as byte sequences without any inherent meaning.
 
 
 
-## How the base64 algorithm work?
+## How the base64 algorithm works?
 
-But how exactly does the algorithm behind the base64 encoding work? Let's discuss that. First, I will
-explain the base64 scale, which is the 64-character scale that is the basis for
-the base64 encoding system.
+Let's first discuss how the base64 algorithm works. We are going to learn about
+the base64 scale, which is the 64-character alphabet that is the basis for the
+base64 encoding system.
 
-After that, I explain the algorithm behind a base64 encoder, which is the part of the algorithm that is responsible for encoding messages
-into the base64 encoding system. Then, after that, I explain the algorithm behind a base64 decoder, which is
-the part of the algorithm that is responsible for translating base64 messages back into their original meaning.
+After that, I explain the algorithm behind the base64 encoder, which is
+responsible for encoding a given byte sequence into a base64 string. Next, I
+explain the algorithm behind the base64 decoder, which is responsible for
+decoding base64 messages back into their original meaning.
 
 If you are unsure about the differences between an "encoder" and a "decoder",
 take a look at @sec-encode-vs-decode.
@@ -55,21 +54,22 @@ take a look at @sec-encode-vs-decode.
 
 The base64 encoding system is based on a scale that goes from 0 to 63 (hence the name).
 Each index in this scale is represented by a character (it is a scale of 64 characters).
-So, in order to convert some binary data, to the base64 encoding, we need to convert each binary number to the corresponding
-character in this "scale of 64 characters".
+So, in order to convert any sequence of bytes to a base64 encoded string, we need to convert each binary number to the corresponding character in the base64 alphabet.
 
-The base64 scale starts with all ASCII uppercase letters (A to Z) which represents
+The base64 alphabet starts with all ASCII uppercase letters (A to Z) which represents
 the first 25 indexes in this scale (0 to 25). After that, we have all ASCII lowercase letters
 (a to z), which represents the range 26 to 51 in the scale. After that, we
 have the one digit numbers (0 to 9), which represents the indexes from 52 to 61 in the scale.
 Finally, the last two indexes in the scale (62 and 63) are represented by the characters `+` and `/`,
 respectively.
 
-These are the 64 characters that compose the base64 scale. The equal sign character (`=`) is not part of the scale itself,
-but it is a special character in the base64 encoding system. This character is used solely as a suffix, to mark the end of the character sequence,
-or, to mark the end of meaningful characters in the sequence.
+These are the 64 characters that compose the base64 scale. The equal sign
+character (`=`) is not part of the alphabet, but it is a special character in
+the base64 encoding system. This character is used solely as a suffix, to mark
+the end of the character sequence, or, to mark the end of meaningful characters
+in the sequence.
 
-The bullet points below summarises the base64 scale:
+The bullet points below summarise the base64 scale:
 
 - range 0 to 25 is represented by: ASCII uppercase letters `-> [A-Z]`;
 - range 26 to 51 is represented by: ASCII lowercase letters `-> [a-z]`;
@@ -82,16 +82,17 @@ The bullet points below summarises the base64 scale:
 
 ### Creating the scale as a lookup table {#sec-base64-table}
 
-The best way to represent this scale in code, is to represent it as a *lookup table*.
-Lookup tables are a classic strategy in computer science to speed up calculations. The basic idea
-is to replace a runtime calculation (which can take a long time to be done) with a basic array indexing
-operation.
+The most efficient way to represent this scale in code is by using a 
+*lookup table*. Lookup tables are a common strategy in computer science to 
+optimize performance. They work by replacing time-consuming runtime 
+calculations with simple array indexing operations, significantly speeding up 
+computations.
 
-Instead of calculating the results everytime you need them, you calculate all possible results at once, and then, you store them in an array
-(which behaves lake a "table"). Then, every time you need to use one of the characters in the base64 scale, instead of
-using many resources to calculate the exact character to be used, you simply retrieve this character
-from the array where you stored all the possible characters in the base64 scale.
-We retrieve the character that we need directly from memory.
+Instead of performing calculations every time a result is needed, you can 
+precompute all possible results at once and store them in an array (acting like
+ a "table"). Whenever you need a character from the Base64 scale, you simply 
+retrieve it from this array. This approach eliminates the need for resource-
+intensive calculations by directly accessing the precomputed value from memory.
 
 We can start building a Zig struct to store our base64 decoder/encoder logic.
 We start with the `Base64` struct below. For now, we only have one single data member in this
@@ -145,21 +146,22 @@ Character at index 28: c
 
 ### A base64 encoder {#sec-base64-encoder-algo}
 
-The algorithm behind a base64 encoder usually works on a window of 3 bytes. Because each byte has
-8 bits, so, 3 bytes forms a set of $8 \times 3 = 24$ bits. This is desirable for the base64 algorithm, because
-24 bits is divisible by 6, which forms $24 / 6 = 4$ groups of 6 bits each.
+The algorithm behind a base64 encoder usually works on a 3 byte window. Because
+each byte has 8 bits, 3 bytes forms a set of $8 \times 3 = 24$ bits. This is 
+desirable for the base64 algorithm, because 24 bits is evenly divisible by 6, 
+which forms $24 / 6 = 4$ groups of 6 bits each.
 
-Therefore, the base64 algorithm works by converting 3 bytes at a time
-into 4 characters from the base64 scale. It keeps iterating through the input string,
-3 bytes at a time, and converting them into the base64 scale, producing 4 characters
-per iteration. It keeps iterating, and producing these "new characters"
-until it hits the end of the input string.
+The base64 algorithm operates by converting 3 bytes of data at a time into 4 
+characters from the base64 character set. It processes the input string in 
+chunks of 3 bytes, converting each chunk into 4 base64 characters per 
+iteration. This process continues until the algorithm reaches the end of the 
+input string.
 
-Now, you may think, what if you have a particular string that have a number of bytes
-that is not divisible by 3? What happens? For example, if you have a string
-that contains only two characters/bytes, such as "Hi". How the
-algorithm would behave in such situation? You find the answer at @fig-base64-algo1.
-You can see at @fig-base64-algo1 that the string "Hi", when converted to base64,
+Now, you may think, what if you have a particular string that has a number of 
+bytes that is not divisible by 3? What happens? For example, if you have a 
+string that contains only two characters/bytes, such as "Hi". How does the 
+algorithm behave in this situation? You find the answer in @fig-base64-algo1. 
+You can see in @fig-base64-algo1 that the string "Hi", when converted to base64,
 becomes the string "SGk=":
 
 ![The logic behind a base64 encoder](./../Figures/base64-encoder-flow.png){#fig-base64-algo1}
